@@ -29,10 +29,7 @@ class DatabaseManager:
             print(f"Constructing '{doc_name}' with modern vector config...")
             self.client.collections.create(
                 name=doc_name,
-                # Modern V4 Syntax: named vector configurations
                 vector_config=Configure.VectorIndex.hnsw(),
-                vectorizer_config=Configure.Vectorizer.text2vec_mistral(),
-                generative_config=Configure.Generative.mistral(model="mistral-large-latest"),
                 properties=[
                     Property(name="document_id", data_type=DataType.TEXT, skip_vectorization=True),
                     Property(name="title", data_type=DataType.TEXT),
@@ -51,8 +48,6 @@ class DatabaseManager:
             self.client.collections.create(
                 name=knowledge_name,
                 vector_config=Configure.VectorIndex.hnsw(),
-                vectorizer_config=Configure.Vectorizer.text2vec_mistral(),
-                generative_config=Configure.Generative.mistral(model="mistral-large-latest"),
                 properties=[
                     Property(name="source_id", data_type=DataType.TEXT, skip_vectorization=True),
                     Property(name="data_type", data_type=DataType.TEXT), 
@@ -68,15 +63,29 @@ class DatabaseManager:
                     ReferenceProperty(name="hasSourceDocument", target_collection=doc_name)
                 ]
             )
+            
+        # 3. The Entity Graph Collection
+        entGraph = "EntityGraph"
+        if not self.client.collections.exists(entGraph):
+            print(f"Constructing '{entGraph}'...")
+            self.client.collections.create(
+                name=entGraph,
+                vector_config=Configure.VectorIndex.hnsw(),
+                properties=[
+                    Property(name="subject", data_type=DataType.TEXT),
+                    Property(name="predicate", data_type=DataType.TEXT),
+                    Property(name="object", data_type=DataType.TEXT),
+                    Property(name="evidence_id", data_type=DataType.TEXT),
+                ]
+            )
 
-        # 3. Forge the Interaction Log (The Feedback Loop)
+        # 4. Forge the Interaction Log (The Feedback Loop)
         log_name = "InteractionLog"
         if not self.client.collections.exists(log_name):
             print(f"Constructing '{log_name}'...")
             self.client.collections.create(
                 name=log_name,
                 vector_config=Configure.VectorIndex.hnsw(),
-                vectorizer_config=Configure.Vectorizer.text2vec_mistral(),
                 properties=[
                     Property(name="query", data_type=DataType.TEXT),
                     Property(name="answer", data_type=DataType.TEXT),
