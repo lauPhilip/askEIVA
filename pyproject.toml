@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "askEIVA"
-version = "0.1.3"
+version = "0.1.4"
 description = "AI Agent for the EIVA Support Team"
 authors = [
     { name = "Philip Lau" }
@@ -22,15 +22,9 @@ dependencies = [
     "beautifulsoup4>=4.12.0",
     "pymupdf",
     "tqdm",
-    "streamlit>=1.31.0",  
-    "httpx>=0.25.0"      
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.4.0",
-    "black>=23.7.0",
-    "ruff>=0.0.285"
+    "streamlit>=1.31.0",
+    "httpx>=0.25.0",
+    "pandas>=2.1.0"  
 ]
 
 [tool.setuptools.packages.find]

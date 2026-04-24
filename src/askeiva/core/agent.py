@@ -21,6 +21,36 @@ class AskEIVA:
         self.tickets = self.client.collections.get("KnowledgeNode")
         self.docs = self.client.collections.get("DocumentLibrary")
         self.logs = self.client.collections.get("InteractionLog")
+        
+    def get_sources(self, query: str):
+        """Fetches metadata for the sources used in the query."""
+        tix, docs = self.search(query)
+        sources = []
+        seen = set()
+        
+        # Pull from Manuals
+        for d in docs:
+            title = d.properties.get("title", "Unknown Manual")
+            if title not in seen:
+                sources.append({
+                    "type": "Manual",
+                    "title": title,
+                    "url": d.properties.get("url", "https://eiva.com")
+                })
+                seen.add(title)
+                
+        # Pull from Tickets
+        for t in tix:
+            subject = t.properties.get("subject", "Support Ticket")
+            if subject not in seen:
+                sources.append({
+                    "type": "Ticket",
+                    "title": subject,
+                    "url": t.properties.get("url", "https://eiva.freshdesk.com")
+                })
+                seen.add(subject)
+                
+        return sources
 
     def search(self, query: str):
         tix = self.tickets.query.hybrid(query=query, limit=3, fusion_type=HybridFusion.RELATIVE_SCORE)
@@ -41,11 +71,12 @@ class AskEIVA:
         full_response = ""
 
         try:
+            # We use .stream() here to get the generator
             stream_response = self.mistral.chat.stream(
                 model="mistral-large-latest",
                 messages=[
-                    {"role": "system", "content": "You are askEIVA, the technical lead AI. Provide expert, grounded advice based on provided data. Cite sources."},
-                    {"role": "user", "content": f"DATA:\n{context_text}\n\nQUERY: {query}"}
+                    {"role": "system", "content": "You are askEIVA, the technical lead AI for EIVA survey solutions. Cite sources."},
+                    {"role": "user", "content": f"KNOWLEDGE POOL:\n{context_text}\n\nQUERY: {query}"}
                 ]
             )
 
@@ -55,7 +86,7 @@ class AskEIVA:
                     full_response += content
                     yield content
 
-            # Log to Knowledge Graph after stream ends
+            # Log interaction to Knowledge Graph after stream finishes
             ref_ids = [str(obj.uuid) for obj in docs] + [str(obj.uuid) for obj in tix]
             self.logs.data.insert(
                 properties={
