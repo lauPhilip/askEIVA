@@ -62,6 +62,6 @@ if __name__ == "__main__":
     engine = DataIngestionEngine()
     try:
         # Starting with a small batch to ensure the chunking is perfect
-        engine.run_ticket_ingestion(domain="eiva", fetch_count=5)
+        engine.run_ticket_ingestion(domain="eiva", fetch_count=100)
     finally:
         engine.close()
