@@ -2,6 +2,7 @@ import os
 import weaviate
 from weaviate.util import generate_uuid5
 from dotenv import load_dotenv
+import time
 
 # Relative imports for the pipeline neighborhood
 from .freshdesk_crawler import FreshdeskCrawler
@@ -23,37 +24,66 @@ class DataIngestionEngine:
         )
         self.collection = self.client.collections.get("KnowledgeNode")
 
-    def run_ticket_ingestion(self, domain="eiva", fetch_count=5):
-        from tqdm import tqdm
-        print(f"--- Initiating Ticket Ingestion for {domain} ---")
+    def run_ticket_ingestion(self, domain="eiva", start_page=1, max_pages=300):
+        """
+        A persistent loop that marches through the archives until no more tickets are found.
+        """
+        print(f"--- Initiating Continuous Archive Retrieval for {domain} ---")
         crawler = FreshdeskCrawler(domain=domain)
         processor = TicketProcessor()
+        
+        page_num = start_page
+        consecutive_empty_pages = 0
 
-        raw_tickets = crawler.fetch_tickets(per_page=fetch_count)
-        clean_tickets = processor.process_tickets_with_dialogue(raw_tickets, crawler, domain)
+        while page_num < (start_page + max_pages):
+            print(f"\n[🔄] Processing Page {page_num}...")
+            
+            # 1. Fetch from Search API (30 results per page)
+            raw_tickets = crawler.fetch_tickets(page=page_num)
+            
+            if not raw_tickets:
+                # If we get an empty page, check one more just in case of a fluke
+                consecutive_empty_pages += 1
+                if consecutive_empty_pages >= 2:
+                    print(f"🏁 End of history reached at page {page_num}. Closing loop.")
+                    break
+                page_num += 1
+                continue
+            
+            consecutive_empty_pages = 0 # Reset if we found data
 
-        # Wrap the loop in tqdm for a progress bar
-        with self.collection.batch.dynamic() as batch:
-            for ticket in tqdm(clean_tickets, desc="Ingesting Tickets", unit="ticket"):
-                chunks = processor.chunk_text(ticket["content"])
-                
-                for i, chunk_content in enumerate(chunks):
-                    chunk_id = f"{ticket['source_id']}_part_{i}"
-                    batch.add_object(
-                        uuid=generate_uuid5(chunk_id),
-                        properties={
-                            "source_id": chunk_id,
-                            "data_type": ticket["data_type"],
-                            "subject": f"{ticket['subject']} (Part {i+1})" if len(chunks) > 1 else ticket['subject'],
-                            "content": chunk_content,
-                            "url": ticket["url"],
-                            "status": ticket["status"],
-                            "priority": ticket["priority"],
-                            "tags": ticket["tags"],
-                            "attachment_urls": ticket["attachment_urls"]
-                        }
-                    )
-        print("\n--- Ticket Ingestion Sequence Complete ---")
+            # 2. Deep-dive into threads (This takes time, naturally creating a delay)
+            clean_tickets = processor.process_tickets_with_dialogue(raw_tickets, crawler, domain)
+
+            # 3. Batch Upload to Weaviate
+            with self.collection.batch.dynamic() as batch:
+                for ticket in clean_tickets:
+                    chunks = processor.chunk_text(ticket["content"])
+                    
+                    for i, chunk_content in enumerate(chunks):
+                        chunk_id = f"{ticket['source_id']}_p{page_num}_part_{i}"
+                        batch.add_object(
+                            uuid=generate_uuid5(chunk_id),
+                            properties={
+                                "source_id": chunk_id,
+                                "data_type": ticket["data_type"],
+                                "subject": ticket['subject'],
+                                "content": chunk_content,
+                                "is_distilled": False, # Important for your Graph logic
+                                "url": ticket["url"]
+                            }
+                        )
+            
+            print(f"✅ Page {page_num} stored. (approx {len(raw_tickets)} tickets)")
+            
+            # 4. The "Cool Down" - Prevents 503 errors and API bans
+            # This allows the background workers at Mistral and Weaviate to breathe
+            print("⏳ Cooling down for 20 seconds...")
+            time.sleep(20) 
+            
+            page_num += 1
+
+        print("\n--- [ FULL INGESTION SEQUENCE COMPLETE ] ---")
 
     def close(self):
         self.client.close()
@@ -61,7 +91,8 @@ class DataIngestionEngine:
 if __name__ == "__main__":
     engine = DataIngestionEngine()
     try:
-        # Starting with a small batch to ensure the chunking is perfect
-        engine.run_ticket_ingestion(domain="eiva", fetch_count=100)
+        # start_page=1 to go from the beginning
+        # max_pages=300 to cover up to 9,000 tickets (30 per page)
+        engine.run_ticket_ingestion(domain="eiva", start_page=1, max_pages=300)
     finally:
         engine.close()

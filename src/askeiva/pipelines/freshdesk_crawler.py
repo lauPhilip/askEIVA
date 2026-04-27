@@ -21,22 +21,37 @@ class FreshdeskCrawler:
         self.download_dir = Path("data/raw_docs")
         self.download_dir.mkdir(parents=True, exist_ok=True)
 
-    def _get(self, endpoint: str, params: dict = None) -> list:
-        """Internal method to handle requests and rate limiting."""
+    def _get(self, endpoint: str, params: dict = None):
+        """Modified to handle both list and search object responses."""
         url = f"{self.base_url}/{endpoint}"
         try:
             response = requests.get(url, auth=self.auth, params=params)
             response.raise_for_status()
-            # Be polite to their servers so we don't get IP-banned
-            time.sleep(0.3) 
+            time.sleep(0.4) # Slightly increased for the Search API's tighter limits
             return response.json()
         except requests.exceptions.RequestException as e:
             print(f"Connection failed on {endpoint}: {e}")
-            return []
+            return None # Return None so we can distinguish between empty list and error
 
-    def fetch_tickets(self, page: int = 1, per_page: int = 5) -> list:
-        """Fetches historical support tickets."""
-        return self._get("tickets", params={"page": page, "per_page": per_page, "include": "description"})
+    def fetch_tickets(self, page: int = 1, updated_since: str = None) -> list:
+        """
+        Fetches tickets using the standard list API with a date filter.
+        The standard API allows up to 40 pages (4,000 tickets) per filter.
+        """
+        params = {
+            "page": page,
+            "per_page": 100, # Back to 100 per page for efficiency
+            "include": "description",
+            "order_by": "updated_at",
+            "order_type": "asc"
+        }
+        
+        if updated_since:
+            params["updated_since"] = updated_since
+
+        # We switch back to the standard /tickets endpoint but with 
+        # a 'since' date to find the historical ones.
+        return self._get("tickets", params=params)
 
     def fetch_ticket_conversations(self, ticket_id: int) -> list:
         """Fetches the entire thread of replies and notes for a specific ticket."""
@@ -83,8 +98,6 @@ class FreshdeskCrawler:
             
         print(f"     [Downloading]: {filename}")
         try:
-            # CRITICAL CHANGE: We remove self.auth here. 
-            # The URL already contains a 'Signed Signature' from Freshdesk.
             response = requests.get(url, stream=True) 
             response.raise_for_status()
             

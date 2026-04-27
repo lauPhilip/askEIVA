@@ -58,6 +58,7 @@ class DatabaseManager:
                     Property(name="priority", data_type=DataType.INT, skip_vectorization=True),
                     Property(name="tags", data_type=DataType.TEXT_ARRAY, skip_vectorization=True),
                     Property(name="attachment_urls", data_type=DataType.TEXT_ARRAY, skip_vectorization=True),
+                    Property(name="is_distilled", data_type=DataType.BOOL, default_value=False)
                 ],
                 references=[
                     ReferenceProperty(name="hasSourceDocument", target_collection=doc_name)

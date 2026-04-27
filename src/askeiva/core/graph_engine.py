@@ -5,13 +5,14 @@ class EIVAKnowledgeGraph:
         self.mistral = mistral_client
 
     def distill_ticket_to_triples(self, ticket_text: str):
-        """Processes raw support text into Subject-Predicate-Object triples."""
+        """Extracts Entities, Structures, and Relations to build a technical map."""
         prompt = (
-            "You are a Maritime Systems Knowledge Engineer. Analyze the following support ticket "
-            "and extract technical relationships as triples. "
-            "Focus on hardware (ScanFish, Winch), software (NaviPac, NaviModel), versions, and errors. "
-            "Relationships should be like: [Component] -> HAS_ISSUE -> [Symptom], [Error] -> FIXED_BY -> [Action]. "
-            "Output ONLY JSON: {'relations': [{'source': '', 'relation': '', 'target': ''}]}"
+            "You are a Senior EIVA Systems Architect. Analyze the technical support text "
+            "to extract a formal knowledge graph. Focus on:\n"
+            "1. ENTITIES: Hardware models, Software, Error Codes, Serial numbers.\n"
+            "2. STRUCTURES: [Part A] IS_COMPONENT_OF [System B], [Version X] IS_VERSION_OF [Software Y].\n"
+            "3. RELATIONS: [Issue] FIXED_BY [Action], [Software] INCOMPATIBLE_WITH [OS].\n\n"
+            "Output ONLY a JSON object: {'relations': [{'source': '', 'relation': '', 'target': ''}]}"
         )
         
         response = self.mistral.chat.complete(

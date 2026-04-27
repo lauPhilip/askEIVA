@@ -24,7 +24,8 @@ dependencies = [
     "tqdm",
     "streamlit>=1.31.0",
     "httpx>=0.25.0",
-    "pandas>=2.1.0"  
+    "pandas>=2.1.0",
+    "pyvis"
 ]
 
 [tool.setuptools.packages.find]
