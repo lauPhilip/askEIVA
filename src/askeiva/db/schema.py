@@ -24,7 +24,7 @@ class DatabaseManager:
             return
 
         # 1. Forge the Document Library (The Manuals)
-        doc_name = "DocumentLibrary"
+        doc_name = "DocumentationLibrary"
         if not self.client.collections.exists(doc_name):
             print(f"Constructing '{doc_name}' with modern vector config...")
             self.client.collections.create(

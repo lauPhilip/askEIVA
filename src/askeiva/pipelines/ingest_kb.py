@@ -20,7 +20,7 @@ class KBIngestionEngine:
             auth_credentials=weaviate.auth.AuthApiKey(os.getenv("WEAVIATE_API_KEY")),
             headers={"X-Mistral-Api-Key": os.getenv("MISTRAL_API_KEY")}
         )
-        self.doc_collection = self.client.collections.get("DocumentLibrary")
+        self.doc_collection = self.client.collections.get("DocumentationLibrary")
         
         # Initialize specialized processing tools
         self.crawler = FreshdeskCrawler(domain="eiva")

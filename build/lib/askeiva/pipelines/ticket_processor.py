@@ -70,25 +70,31 @@ class TicketProcessor:
         return [c for c in chunks if c.strip()]
 
     def process_tickets_with_dialogue(self, raw_tickets, crawler, domain):
-        """Transforms raw API tickets into structured dialogue strings."""
+        """Transforms raw Search API results into deep-context dialogue strings."""
         processed_data = []
 
         for ticket in raw_tickets:
             ticket_id = ticket['id']
             subject = ticket.get('subject', 'No Subject')
-            description = self.clean_html(ticket.get('description', ''))
             
-            # Compile initial ticket info
+            # Search API sometimes uses 'description_text' or 'description'
+            raw_desc = ticket.get('description') or ticket.get('description_text') or ''
+            description = self.clean_html(raw_desc)
+            
+            # Start the record
             full_dialogue = f"Ticket ID: {ticket_id}\nSubject: {subject}\n\n**Dialogue: Initial Request**\n{description}"
 
-            # Fetch and append the conversation thread
+            # Deep Dive: Fetch the conversation thread for THIS specific ticket
+            # This ensures we get the sub-content regardless of how we found the ticket
             conversations = crawler.fetch_ticket_conversations(ticket_id)
-            for comment in conversations:
-                body = self.clean_html(comment.get('body', ''))
-                if body:
-                    # Determine if it's a private note or a public reply
-                    note_type = "Private Note" if comment.get('private') else "Reply"
-                    full_dialogue += f"\n\n**Dialogue: {note_type}**\n{body}"
+            
+            if conversations:
+                for comment in conversations:
+                    # Conversations use 'body' for the text
+                    body = self.clean_html(comment.get('body', ''))
+                    if body:
+                        note_type = "Private Note" if comment.get('private') else "Reply"
+                        full_dialogue += f"\n\n**Dialogue: {note_type}**\n{body}"
 
             processed_data.append({
                 "source_id": f"ticket_{ticket_id}",

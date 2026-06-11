@@ -20,7 +20,7 @@ class AskEIVA:
         
         # Collections
         self.tickets = self.client.collections.get("KnowledgeNode")
-        self.docs = self.client.collections.get("DocumentLibrary")
+        self.docs = self.client.collections.get("DocumentationLibrary")
         self.logs = self.client.collections.get("InteractionLog")
         self.graph = self.client.collections.get("EntityGraph")
 

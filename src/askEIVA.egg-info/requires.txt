@@ -10,8 +10,5 @@ pymupdf
 tqdm
 streamlit>=1.31.0
 httpx>=0.25.0
-
-[dev]
-pytest>=7.4.0
-black>=23.7.0
-ruff>=0.0.285
+pandas>=2.1.0
+pyvis
